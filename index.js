@@ -116,12 +116,14 @@ program
       return;
     }
 
+    // Set current directory.
+    process.chdir(config.path);
+
     let subfolder = componentInfo(options.type);
 
     const pathToAddFile = path.resolve(config.path, config.config.scssFolder, subfolder);
-    // @TODO Create folder if it does not exist.
     if (!fs.existsSync(pathToAddFile)) {
-      // fs.mkdirSync(pathToAddFile);
+      fs.mkdirSync(pathToAddFile);
       console.log(chalk.green(`Added folder: ${subfolder}`));
     }
 
@@ -129,6 +131,9 @@ program
     console.log(chalk.green(`Created file: _${name}.scss`));
 
     parseAndAppend(config.config.scssFolder, name, subfolder);
+
+    // Set current directory back to original.
+    process.chdir(cwd);
   });
  
 program.parse(process.argv);

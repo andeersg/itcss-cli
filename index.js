@@ -9,81 +9,12 @@ const program = require('commander');
 const promptly = require('promptly');
 const chalk = require('chalk');
 
+const mapTypes = require('./lib/mapTypes');
+const configFile = require('./lib/configFile');
+const parseSCSS = require('./lib/modifySCSS');
+
 const maxLevel = 10;
 const cwd = process.cwd();
-
-const componentInfo = function(name) {
-  switch (name) {
-    case 'trump':
-      return 'trumps';
-
-    case 'tool':
-      return 'tools';
-  
-    case 'base':
-      return 'base';
-
-    case 'generic':
-      return 'generic';
-    
-    case 'object':
-      return 'objects';
-    
-    case 'component':
-      return 'components';
-  }
-  return 'components';
-}
-
-const findConfigFile = function(currentPath, level) {
-  const parentPath = path.resolve(currentPath, '..');
-
-  if (currentPath === parentPath) {
-    return false;
-  }
-
-  const files = fs.readdirSync(currentPath);
-
-  if (files.indexOf('.itcssrc') !== -1) {
-    const rcFile = JSON.parse(fs.readFileSync(`${currentPath}/.itcssrc`));
-    return {
-      path: currentPath,
-      config: rcFile,
-    };
-  }
-  else {
-    if (level === maxLevel) {
-      return false;
-    }
-
-    return findConfigFile(parentPath, level + 1);
-  }
-};
-
-const parseAndAppend = function(rootSCSS, newFile, folder) {
-  const mainStyle = path.resolve(rootSCSS, 'style.scss');
-  const styleSCSS = fs.readFileSync(mainStyle, 'utf8');
-  const styleLines = styleSCSS.split("\n");
-
-  let correctSection = false;
-
-  for (var i = 0; i < styleLines.length; i++) {
-    if (styleLines[i].startsWith('// ')) {
-      const filePart = styleLines[i].replace('// ', '').toLowerCase();
-      if (filePart === folder) {
-        correctSection = true;
-      }
-    }
-    if (correctSection && styleLines[i] === '') {
-      // We found first empty line. Add ours.
-      const newLine = `@import '${folder}/${newFile}';`;
-      styleLines.splice(i, 0, newLine);
-      break;
-    }
-  }
-
-  fs.writeFileSync(mainStyle, styleLines.join("\n"));
-};
 
 program
   .version('0.1.0')
@@ -109,7 +40,7 @@ program
   .description('Add the ITCSS part you want')
   .option('-t, --type <type>', 'Which component are you adding?', 'component')
   .action(function(name, options) {
-    const config = findConfigFile(process.cwd(), 1);
+    const config = configFile.findConfigFile(process.cwd(), 1);
     console.log(config);
     if (!config) {
       console.log(chalk.red('Could not locate config, did you init?'));
@@ -119,7 +50,7 @@ program
     // Set current directory.
     process.chdir(config.path);
 
-    let subfolder = componentInfo(options.type);
+    let subfolder = mapTypes(options.type);
 
     const pathToAddFile = path.resolve(config.path, config.config.scssFolder, subfolder);
     if (!fs.existsSync(pathToAddFile)) {
@@ -130,7 +61,7 @@ program
     fs.writeFileSync(path.resolve(pathToAddFile, `_${name}.scss`), '');
     console.log(chalk.green(`Created file: _${name}.scss`));
 
-    parseAndAppend(config.config.scssFolder, name, subfolder);
+    parseSCSS(config.config.scssFolder, name, subfolder);
 
     // Set current directory back to original.
     process.chdir(cwd);
